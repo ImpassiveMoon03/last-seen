@@ -63,30 +63,36 @@ async def on_member_update(before, after):
 
 @client.command()
 async def member(ctx, member:discord.Member = None):
-  if member is None:
-    c = conn.execute('SELECT status,change FROM members WHERE id = ?', [ctx.author.id])
+  async with ctx.channel.typing():
+    mem = ctx.author if not member else member
+    c = conn.execute('SELECT status,change FROM members WHERE id = ?', [mem.id])
     q = c.fetchone()
     delta = dt.timedelta(milliseconds = time.time()*1000 - q[1])
+    createDelta = dt.timedelta(milliseconds = time.time()*1000 - mem.created_at.timestamp()*1000)
+    creation = F"{mem.created_at.strftime('%B')} {mem.created_at.strftime('%d')}, {mem.created_at.strftime('%Y')}"
     if q[0] == 'offline':
-      await ctx.send(F"Last seen {humanize.precisedelta(delta)} ago")
+      embed = discord.Embed(
+        title = mem.name,
+        description = F"**Account Creation:** {creation} - {humanize.precisedelta(createDelta, minimum_unit='months', format='%0.0f')}\nLast seen {humanize.precisedelta(delta)} ago"
+      )
+      await ctx.send(embed=embed)
     elif q[0] == 'idle':
-      await ctx.send(F"Idle for {humanize.precisedelta(delta)}")
+      embed = discord.Embed(
+        title = mem.name,
+        description = F"**Account Creation:** {creation} - {humanize.precisedelta(createDelta, minimum_unit='months', format='%0.0f')}\nIdle for {humanize.precisedelta(delta)}"
+      )
+      await ctx.send(embed=embed)
     elif q[0] == 'dnd':
-      await ctx.send(F"In do not disturb for {humanize.precisedelta(delta)}")
+      embed = discord.Embed(
+        title = mem.name,
+        description = F"**Account Creation:** {creation} - {humanize.precisedelta(createDelta, minimum_unit='months', format='%0.0f')}\nIn do not disturb for {humanize.precisedelta(delta)}"
+      )
+      await ctx.send(embed=embed)
     elif q[0] == 'online':
-      await ctx.send(F"Online for {humanize.precisedelta(delta)}")
-  else:
-    id = member.id
-    c = conn.execute('SELECT status,change FROM members WHERE id = ?', [id])
-    q = c.fetchone()
-    delta = dt.timedelta(milliseconds = time.time()*1000 - q[1])
-    if q[0] == 'offline':
-      await ctx.send(F"Last seen {humanize.precisedelta(delta)} ago")
-    elif q[0] == 'idle':
-      await ctx.send(F"Idle for {humanize.precisedelta(delta)}")
-    elif q[0] == 'dnd':
-      await ctx.send(F"In do not disturb for {humanize.precisedelta(delta)}")
-    elif q[0] == 'online':
-      await ctx.send(F"Online for {humanize.precisedelta(delta)}")
+      embed = discord.Embed(
+        title = mem.name,
+        description = F"**Account Creation:** {creation} - {humanize.precisedelta(createDelta, minimum_unit='months', format='%0.0f')}\nOnline for {humanize.precisedelta(delta)}"
+      )
+      await ctx.send(embed=embed)
 
 client.run(os.environ.get('TOKEN'))
