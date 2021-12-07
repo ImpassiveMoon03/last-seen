@@ -108,4 +108,4 @@ async def member(ctx, member:discord.Member = None):
       )
       await ctx.send(embed=embed)
 
-client.run("ODU5NTg4MTkxODc0MzE4MzQ2.YNu34w.IqMKCOSuNqAhpkfj8gNHyRwPyQY")
+client.run("TOKEN")
