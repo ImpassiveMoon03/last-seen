@@ -5,67 +5,80 @@ import time
 import humanize
 import datetime as dt
 import os
+import sanic
 
-conn = connect('last.db')
 
-conn.execute("""
-  CREATE TABLE IF NOT EXISTS members(
-    id integer UNIQUE,
-    status text,
-    change int
-  )
-""")
 
-intents = discord.Intents.default()
-intents.members = True
-intents.presences = True
-client = commands.Bot(command_prefix="o!", intents=intents)
+class Client(commands.Bot):
+  def __init__(self):
+    super().__init__("o!", intents=discord.Intents.all())
+    self.conn = connect("last.db")
+    self.conn.execute("""
+      CREATE TABLE IF NOT EXISTS members(
+        id integer UNIQUE,
+        status text,
+        change int
+      )
+    """)
 
-@client.event
-async def on_ready():
-  print('Bot online')
-  for i in client.users:
-    if i.bot == True:
-      pass
-    else:
-      if len(i.mutual_guilds) == 0:
+  async def on_ready(self):
+    print('Bot online')
+    for i in self.users:
+      if i.bot == True:
         pass
       else:
-        member = i.mutual_guilds[0].get_member(i.id)
-        print(member)
-        c = conn.execute('SELECT id FROM members')
-        q = c.fetchall()
-        ids = []
-        for w in q:
-          ids.append(w[0])
-        if member.id in ids:
-          print(time.time() * 1000)
-          conn.execute(
-            'UPDATE members SET status = ?, change = ? WHERE id = ?',
-            [str(member.status), (time.time()*1000), member.id]
-          )
-          conn.commit()
+        if len(i.mutual_guilds) == 0:
+          pass
         else:
-          conn.execute(
-            'INSERT INTO members(id,status,change) VALUES(?,?,?)',
-            [member.id, str(member.status), (time.time()*1000)]
-          )
-          conn.commit()
+          member = i.mutual_guilds[0].get_member(i.id)
+          print(member)
+          c = self.conn.execute('SELECT id FROM members')
+          q = c.fetchall()
+          ids = []
+          for w in q:
+            ids.append(w[0])
+          if member.id in ids:
+            print(time.time() * 1000)
+            self.conn.execute(
+              'UPDATE members SET status = ?, change = ? WHERE id = ?',
+              [str(member.status), (time.time()*1000), member.id]
+            )
+            self.conn.commit()
+          else:
+            self.conn.execute(
+              'INSERT INTO members(id,status,change) VALUES(?,?,?)',
+              [member.id, str(member.status), (time.time()*1000)]
+            )
+            self.conn.commit()
 
-@client.event
-async def on_member_update(before, after):
-  print(str(after.status))
-  conn.execute(
-    "UPDATE members SET id = ?, status = ?, change = ? WHERE id = ?",
-    [after.id, str(after.status), (time.time()*1000), after.id]
-  )
-  conn.commit()
+  async def on_member_update(self, before, after):
+    self.conn.execute(
+      "UPDATE members SET id = ?, status = ?, change = ? WHERE id = ?",
+      [after.id, str(after.status), (time.time()*1000), after.id]
+    )
+    self.conn.commit()
+
+  async def on_member_join(self, member):
+    if member.user.bot is True:
+      pass
+    else:
+      c = self.conn.execute("SELECT id FROM members WHERE id = ?", [member.id])
+      q = c.fetchone()
+      if q is None:
+        self.conn.execute(
+          'INSERT INTO members(id,status,change) VALUES(?,?,?)',
+          [member.id, str(member.status), (time.time()*1000)]
+        )
+        self.conn.commit()
+
+
+client = Client()
 
 @client.command()
 async def member(ctx, member:discord.Member = None):
   async with ctx.channel.typing():
     mem = ctx.author if not member else member
-    c = conn.execute('SELECT status,change FROM members WHERE id = ?', [mem.id])
+    c = client.conn.execute('SELECT status,change FROM members WHERE id = ?', [mem.id])
     q = c.fetchone()
     delta = dt.timedelta(milliseconds = time.time()*1000 - q[1])
     createDelta = dt.timedelta(milliseconds = time.time()*1000 - mem.created_at.timestamp()*1000)
@@ -95,4 +108,4 @@ async def member(ctx, member:discord.Member = None):
       )
       await ctx.send(embed=embed)
 
-client.run(os.environ.get('TOKEN'))
+client.run("ODU5NTg4MTkxODc0MzE4MzQ2.YNu34w.IqMKCOSuNqAhpkfj8gNHyRwPyQY")
